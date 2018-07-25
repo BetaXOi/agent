@@ -420,7 +420,7 @@ func (s *sandbox) updateRoutes(netHandle *netlink.Handle, requestedRoutes *pb.Ro
 	return requestedRoutes, err
 }
 
-//addRoutes and updateRoute is similar excpet for addRoutes will not delete existing routes
+//addRoutes and updateRoutes is similar excpet for addRoutes will not delete existing routes and ignore error
 func (s *sandbox) addRoutes(netHandle *netlink.Handle, requestedRoutes *pb.Routes) (resultingRoutes *pb.Routes, err error) {
 	if requestedRoutes == nil {
 		return nil, errNoRoutes
@@ -451,9 +451,8 @@ func (s *sandbox) addRoutes(netHandle *netlink.Handle, requestedRoutes *pb.Route
 			err = s.updateRoute(netHandle, reqRoute, true)
 			if err != nil {
 				agentLog.WithError(err).Error("add Route failed")
-				//If there was an error setting the route, return the error
-				//and the current routes on the system via the defer func
-				return
+				// Ignore error for addRoutes
+				continue
 			}
 
 		}
@@ -464,9 +463,8 @@ func (s *sandbox) addRoutes(netHandle *netlink.Handle, requestedRoutes *pb.Route
 			err = s.updateRoute(netHandle, reqRoute, true)
 			if err != nil {
 				agentLog.WithError(err).Error("add Route failed")
-				//If there was an error setting the route, return the
-				//error and the current routes on the system via defer
-				return
+				// Ignore error for addRoutes
+				continue
 			}
 		}
 	}
