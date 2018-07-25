@@ -1204,6 +1204,10 @@ func (a *agentGRPC) UpdateRoutes(ctx context.Context, req *pb.UpdateRoutesReques
 	return a.sandbox.updateRoutes(nil, req.Routes)
 }
 
+func (a *agentGRPC) AddRoutes(ctx context.Context, req *pb.AddRoutesRequest) (*pb.Routes, error) {
+	return a.sandbox.addRoutes(nil, req.Routes)
+}
+
 func (a *agentGRPC) OnlineCPUMem(ctx context.Context, req *pb.OnlineCPUMemRequest) (*gpb.Empty, error) {
 	if !req.Wait {
 		go a.onlineCPUMem(req)

@@ -420,6 +420,60 @@ func (s *sandbox) updateRoutes(netHandle *netlink.Handle, requestedRoutes *pb.Ro
 	return requestedRoutes, err
 }
 
+//addRoutes and updateRoute is similar excpet for addRoutes will not delete existing routes
+func (s *sandbox) addRoutes(netHandle *netlink.Handle, requestedRoutes *pb.Routes) (resultingRoutes *pb.Routes, err error) {
+	if requestedRoutes == nil {
+		return nil, errNoRoutes
+	}
+
+	if netHandle == nil {
+		netHandle, err = netlink.NewHandle(unix.NETLINK_ROUTE)
+		if err != nil {
+			return nil, err
+		}
+		defer netHandle.Delete()
+	}
+
+	//If we are returning an error, return the current routes on the system
+	defer func() {
+		if err != nil {
+			resultingRoutes, _ = getCurrentRoutes(netHandle)
+		}
+	}()
+
+	//
+	// Set each of the requested routes
+	//
+	// First make sure we set the interfaces initial routes, as otherwise we
+	// won't be able to access the gateway
+	for _, reqRoute := range requestedRoutes.Routes {
+		if reqRoute.Gateway == "" {
+			err = s.updateRoute(netHandle, reqRoute, true)
+			if err != nil {
+				agentLog.WithError(err).Error("add Route failed")
+				//If there was an error setting the route, return the error
+				//and the current routes on the system via the defer func
+				return
+			}
+
+		}
+	}
+	// Take a second pass and apply the routes which include a gateway
+	for _, reqRoute := range requestedRoutes.Routes {
+		if reqRoute.Gateway != "" {
+			err = s.updateRoute(netHandle, reqRoute, true)
+			if err != nil {
+				agentLog.WithError(err).Error("add Route failed")
+				//If there was an error setting the route, return the
+				//error and the current routes on the system via defer
+				return
+			}
+		}
+	}
+
+	return requestedRoutes, err
+}
+
 //getCurrentRoutes is a helper to gather existing routes in gRPC protocol format
 func getCurrentRoutes(netHandle *netlink.Handle) (*pb.Routes, error) {
 
