@@ -18,15 +18,18 @@ import (
 	"os/signal"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
 	"sync"
 	"syscall"
 	"time"
 
 	"github.com/gogo/protobuf/proto"
+	"github.com/gogo/protobuf/types"
 	"github.com/grpc-ecosystem/grpc-opentracing/go/otgrpc"
 	"github.com/kata-containers/agent/pkg/uevent"
 	pb "github.com/kata-containers/agent/protocols/grpc"
+	"github.com/kata-containers/agent/protocols/event"
 	"github.com/opencontainers/runc/libcontainer"
 	"github.com/opencontainers/runc/libcontainer/configs"
 	_ "github.com/opencontainers/runc/libcontainer/nsenter"
@@ -39,6 +42,9 @@ import (
 	"google.golang.org/grpc/codes"
 	grpcStatus "google.golang.org/grpc/status"
 )
+
+// Specify a vsock port where event are sent.
+var hostVSockPort = uint32(0)
 
 const (
 	procCgroups = "/proc/cgroups"
@@ -1009,6 +1015,21 @@ func makeUnaryInterceptor() grpc.UnaryServerInterceptor {
 	}
 }
 
+func (s *sandbox) sendAgentReadyEvent() error {
+	url := event.VSockSocketScheme + "://2:" + strconv.FormatUint(uint64(hostVSockPort), 10)
+	client, err := event.NewEventClient(s.ctx, url)
+	if err != nil {
+		agentLog.WithError(err).Warn("Failed to call Notify gRPC Ready")
+		return err
+	}
+	client.EventServiceClient.Ready(context.Background(), &types.Empty{})
+
+	// we will not send other event anymore, close it
+	client.Close()
+
+	return nil
+}
+
 func (s *sandbox) startGRPC() {
 	span, _ := s.trace("startGRPC")
 	defer span.Finish()
@@ -1078,6 +1099,8 @@ func (s *sandbox) startGRPC() {
 				agentLog.WithError(err).Warn("Failed to create agent grpc listener")
 				return
 			}
+
+			s.sendAgentReadyEvent()
 
 			// l is closed when Serve() returns
 			servErr = grpcServer.Serve(l)

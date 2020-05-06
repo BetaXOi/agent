@@ -23,6 +23,7 @@ const (
 	traceModeFlag     = optionPrefix + "trace"
 	useVsockFlag      = optionPrefix + "use_vsock"
 	debugConsoleFlag  = optionPrefix + "debug_console"
+	hostVsockPortFlag = optionPrefix + "host_vsock_port"
 	kernelCmdlineFile = "/proc/cmdline"
 	traceModeStatic   = "static"
 	traceModeDynamic  = "dynamic"
@@ -125,6 +126,13 @@ func (c *agentConfig) parseCmdlineOption(option string) error {
 			agentLog.Debug("Param passed to NOT use vsock channel")
 			commCh = serialCh
 		}
+	case hostVsockPortFlag:
+		port, err := strconv.ParseUint(split[valuePosition], 10, 32)
+		if err != nil {
+			agentLog.Infof("parse host vsock port failed %s", split[valuePosition])
+			return err
+		}
+		hostVSockPort = uint32(port)
 	default:
 		if strings.HasPrefix(split[optionPosition], optionPrefix) {
 			return grpcStatus.Errorf(codes.NotFound, "Unknown option %s", split[optionPosition])
